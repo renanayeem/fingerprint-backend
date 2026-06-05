@@ -4,23 +4,35 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 import java.util.Map;
 import java.util.HashMap;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = "http://localhost:4200")
+@CrossOrigin(origins = "http://localhost:4200", allowCredentials = "true")
 public class AuthController {
 
     private Map<String, String> fingerprintStore = new HashMap<>();
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<Map<String, String>> login(
+            @RequestBody LoginRequest request,
+            HttpServletResponse response) {
+
         String username = request.getUsername();
         String password = request.getPassword();
         String fingerprint = request.getFingerprint();
 
         if ("admin".equals(username) && "admin".equals(password)) {
             fingerprintStore.put(username, fingerprint);
-            System.out.println("Login successful! Fingerprint stored for: " + username);
+
+            Cookie cookie = new Cookie("fingerprint", fingerprint);
+            cookie.setHttpOnly(true);
+            cookie.setPath("/");
+            cookie.setMaxAge(8 * 60 * 60);
+            response.addCookie(cookie);
+
+            System.out.println("Login successful! Fingerprint stored and cookie set for: " + username);
             return ResponseEntity.ok(Map.of("message", "Login successful!"));
         } else {
             return ResponseEntity.status(401).body(Map.of("message", "Invalid credentials!"));
@@ -29,7 +41,7 @@ public class AuthController {
 
     @GetMapping("/data")
     public ResponseEntity<Map<String, String>> getData(
-            @RequestHeader(value = "X-Client-Fingerprint", required = false) String fingerprint) {
+            @CookieValue(value = "fingerprint", required = false) String fingerprint) {
 
         String storedFingerprint = fingerprintStore.get("admin");
 
@@ -42,7 +54,7 @@ public class AuthController {
 
     @PostMapping("/data")
     public ResponseEntity<Map<String, String>> postData(
-            @RequestHeader(value = "X-Client-Fingerprint", required = false) String fingerprint) {
+            @CookieValue(value = "fingerprint", required = false) String fingerprint) {
 
         String storedFingerprint = fingerprintStore.get("admin");
 
