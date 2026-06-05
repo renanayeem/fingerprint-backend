@@ -64,4 +64,17 @@ public class AuthController {
 
         return ResponseEntity.ok(Map.of("message", "Data posted successfully!"));
     }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, String>> logout(HttpServletResponse response) {
+        Cookie cookie = new Cookie("fingerprint", null);
+        cookie.setHttpOnly(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+        response.addCookie(cookie);
+
+        fingerprintStore.remove("admin");
+
+        return ResponseEntity.ok(Map.of("message", "Logged out successfully!"));
+    }
 }
