@@ -13,6 +13,11 @@ import jakarta.servlet.http.HttpServletResponse;
 public class AuthController {
 
     private Map<String, String> fingerprintStore = new HashMap<>();
+    private final JwtUtil jwtUtil;
+
+    public AuthController(JwtUtil jwtUtil) {
+        this.jwtUtil = jwtUtil;
+    }
 
     @PostMapping("/login")
     public ResponseEntity<Map<String, String>> login(
@@ -32,8 +37,10 @@ public class AuthController {
             cookie.setMaxAge(8 * 60 * 60);
             response.addCookie(cookie);
 
-            System.out.println("Login successful! Fingerprint stored and cookie set for: " + username);
-            return ResponseEntity.ok(Map.of("message", "Login successful!"));
+            String token = jwtUtil.generateToken(username);
+
+            System.out.println("Login successful! Token generated for: " + username);
+            return ResponseEntity.ok(Map.of("message", "Login successful!", "token", token));
         } else {
             return ResponseEntity.status(401).body(Map.of("message", "Invalid credentials!"));
         }
