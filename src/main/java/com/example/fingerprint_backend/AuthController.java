@@ -13,10 +13,12 @@ public class AuthController {
 
     private final SessionRegistry sessionRegistry;
     private final JwtUtil jwtUtil;
+    private final UserService userService;
 
-    public AuthController(SessionRegistry sessionRegistry, JwtUtil jwtUtil) {
+    public AuthController(SessionRegistry sessionRegistry, JwtUtil jwtUtil, UserService userService) {
         this.sessionRegistry = sessionRegistry;
         this.jwtUtil = jwtUtil;
+        this.userService = userService;
     }
 
     @PostMapping("/login")
@@ -28,21 +30,37 @@ public class AuthController {
         String password = request.getPassword();
         String fingerprint = request.getFingerprint();
 
-        if ("admin".equals(username) && "admin".equals(password)) {
+        if (userService.validateUser(username, password)) {
             sessionRegistry.saveFingerprint(username, fingerprint);
 
-            Cookie cookie = new Cookie("fingerprint", fingerprint);
-            cookie.setHttpOnly(true);
-            cookie.setPath("/");
-            cookie.setMaxAge(8 * 60 * 60);
-            response.addCookie(cookie);
+            Cookie fingerprintCookie = new Cookie("fingerprint", fingerprint);
+            fingerprintCookie.setHttpOnly(true);
+            fingerprintCookie.setPath("/");
+            fingerprintCookie.setMaxAge(8 * 60 * 60);
+            response.addCookie(fingerprintCookie);
 
             String token = jwtUtil.generateToken(username);
 
-            System.out.println("Login successful! Fingerprint stored in Redis for: " + username);
-            return ResponseEntity.ok(Map.of("message", "Login successful!", "token", token));
+            Cookie jwtCookie = new Cookie("jwt", token);
+            jwtCookie.setHttpOnly(true);
+            jwtCookie.setPath("/");
+            jwtCookie.setMaxAge(24 * 60 * 60);
+            response.addCookie(jwtCookie);
+
+            System.out.println("Login successful for: " + username);
+            return ResponseEntity.ok(Map.of("message", "Login successful!"));
         } else {
             return ResponseEntity.status(401).body(Map.of("message", "Invalid credentials!"));
+        }
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<Map<String, String>> register(@RequestBody LoginRequest request) {
+        boolean success = userService.register(request.getUsername(), request.getPassword());
+        if (success) {
+            return ResponseEntity.ok(Map.of("message", "Registration successful!"));
+        } else {
+            return ResponseEntity.status(400).body(Map.of("message", "Username already exists!"));
         }
     }
 
@@ -60,11 +78,17 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> logout(HttpServletResponse response) {
         sessionRegistry.delete("admin");
 
-        Cookie cookie = new Cookie("fingerprint", null);
-        cookie.setHttpOnly(true);
-        cookie.setPath("/");
-        cookie.setMaxAge(0);
-        response.addCookie(cookie);
+        Cookie fingerprintCookie = new Cookie("fingerprint", null);
+        fingerprintCookie.setHttpOnly(true);
+        fingerprintCookie.setPath("/");
+        fingerprintCookie.setMaxAge(0);
+        response.addCookie(fingerprintCookie);
+
+        Cookie jwtCookie = new Cookie("jwt", null);
+        jwtCookie.setHttpOnly(true);
+        jwtCookie.setPath("/");
+        jwtCookie.setMaxAge(0);
+        response.addCookie(jwtCookie);
 
         return ResponseEntity.ok(Map.of("message", "Logged out successfully!"));
     }

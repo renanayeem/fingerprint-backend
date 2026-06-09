@@ -2,6 +2,7 @@ package com.example.fingerprint_backend;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -11,6 +12,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 @Component
 public class JwtFilter extends OncePerRequestFilter {
@@ -26,19 +28,26 @@ public class JwtFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
 
-        String authHeader = request.getHeader("Authorization");
+        String token = extractCookie(request, "jwt");
 
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
-
-            if (jwtUtil.validateToken(token)) {
-                String username = jwtUtil.getUsernameFromToken(token);
-                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(username, null,
-                        new ArrayList<>());
-                SecurityContextHolder.getContext().setAuthentication(auth);
-            }
+        if (token != null && jwtUtil.validateToken(token)) {
+            String username = jwtUtil.getUsernameFromToken(token);
+            request.setAttribute("username", username);
+            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(username, null,
+                    new ArrayList<>());
+            SecurityContextHolder.getContext().setAuthentication(auth);
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private String extractCookie(HttpServletRequest request, String name) {
+        if (request.getCookies() == null)
+            return null;
+        return Arrays.stream(request.getCookies())
+                .filter(c -> c.getName().equals(name))
+                .map(Cookie::getValue)
+                .findFirst()
+                .orElse(null);
     }
 }
