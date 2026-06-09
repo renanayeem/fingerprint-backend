@@ -3,7 +3,6 @@ package com.example.fingerprint_backend;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 import java.util.Map;
-import java.util.HashMap;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -12,10 +11,11 @@ import jakarta.servlet.http.HttpServletResponse;
 @CrossOrigin(origins = "http://localhost:4200", allowCredentials = "true")
 public class AuthController {
 
-    private Map<String, String> fingerprintStore = new HashMap<>();
+    private final SessionRegistry sessionRegistry;
     private final JwtUtil jwtUtil;
 
-    public AuthController(JwtUtil jwtUtil) {
+    public AuthController(SessionRegistry sessionRegistry, JwtUtil jwtUtil) {
+        this.sessionRegistry = sessionRegistry;
         this.jwtUtil = jwtUtil;
     }
 
@@ -29,7 +29,7 @@ public class AuthController {
         String fingerprint = request.getFingerprint();
 
         if ("admin".equals(username) && "admin".equals(password)) {
-            fingerprintStore.put(username, fingerprint);
+            sessionRegistry.saveFingerprint(username, fingerprint);
 
             Cookie cookie = new Cookie("fingerprint", fingerprint);
             cookie.setHttpOnly(true);
@@ -39,7 +39,7 @@ public class AuthController {
 
             String token = jwtUtil.generateToken(username);
 
-            System.out.println("Login successful! Token generated for: " + username);
+            System.out.println("Login successful! Fingerprint stored in Redis for: " + username);
             return ResponseEntity.ok(Map.of("message", "Login successful!", "token", token));
         } else {
             return ResponseEntity.status(401).body(Map.of("message", "Invalid credentials!"));
@@ -47,40 +47,24 @@ public class AuthController {
     }
 
     @GetMapping("/data")
-    public ResponseEntity<Map<String, String>> getData(
-            @CookieValue(value = "fingerprint", required = false) String fingerprint) {
-
-        String storedFingerprint = fingerprintStore.get("admin");
-
-        if (storedFingerprint == null || !storedFingerprint.equals(fingerprint)) {
-            return ResponseEntity.status(401).body(Map.of("message", "Invalid fingerprint!"));
-        }
-
+    public ResponseEntity<Map<String, String>> getData() {
         return ResponseEntity.ok(Map.of("message", "Data fetched successfully!"));
     }
 
     @PostMapping("/data")
-    public ResponseEntity<Map<String, String>> postData(
-            @CookieValue(value = "fingerprint", required = false) String fingerprint) {
-
-        String storedFingerprint = fingerprintStore.get("admin");
-
-        if (storedFingerprint == null || !storedFingerprint.equals(fingerprint)) {
-            return ResponseEntity.status(401).body(Map.of("message", "Invalid fingerprint!"));
-        }
-
+    public ResponseEntity<Map<String, String>> postData() {
         return ResponseEntity.ok(Map.of("message", "Data posted successfully!"));
     }
 
     @PostMapping("/logout")
     public ResponseEntity<Map<String, String>> logout(HttpServletResponse response) {
+        sessionRegistry.delete("admin");
+
         Cookie cookie = new Cookie("fingerprint", null);
         cookie.setHttpOnly(true);
         cookie.setPath("/");
         cookie.setMaxAge(0);
         response.addCookie(cookie);
-
-        fingerprintStore.remove("admin");
 
         return ResponseEntity.ok(Map.of("message", "Logged out successfully!"));
     }
