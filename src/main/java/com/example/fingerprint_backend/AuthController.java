@@ -4,6 +4,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 import java.util.Map;
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 @RestController
@@ -75,8 +76,14 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Map<String, String>> logout(HttpServletResponse response) {
-        sessionRegistry.delete("admin");
+    public ResponseEntity<Map<String, String>> logout(
+            HttpServletRequest request,
+            HttpServletResponse response) {
+
+        String username = (String) request.getAttribute("username");
+        if (username != null) {
+            sessionRegistry.delete(username);
+        }
 
         Cookie fingerprintCookie = new Cookie("fingerprint", null);
         fingerprintCookie.setHttpOnly(true);
