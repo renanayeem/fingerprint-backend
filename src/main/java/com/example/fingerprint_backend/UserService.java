@@ -14,13 +14,17 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
-    public boolean register(String username, String password) {
+    public boolean register(String username, String password, String name, String email, String phone, String address) {
         if (userRepository.findByUsername(username).isPresent()) {
             return false;
         }
         User user = new User();
         user.setUsername(username);
         user.setPassword(passwordEncoder.encode(password));
+        user.setName(name);
+        user.setEmail(email);
+        user.setPhone(phone);
+        user.setAddress(address);
         userRepository.save(user);
         return true;
     }

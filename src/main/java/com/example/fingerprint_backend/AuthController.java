@@ -3,6 +3,7 @@ package com.example.fingerprint_backend;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 import java.util.Map;
+import java.util.Optional;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -15,11 +16,14 @@ public class AuthController {
     private final SessionRegistry sessionRegistry;
     private final JwtUtil jwtUtil;
     private final UserService userService;
+    private final UserRepository userRepository;
 
-    public AuthController(SessionRegistry sessionRegistry, JwtUtil jwtUtil, UserService userService) {
+    public AuthController(SessionRegistry sessionRegistry, JwtUtil jwtUtil, UserService userService,
+            UserRepository userRepository) {
         this.sessionRegistry = sessionRegistry;
         this.jwtUtil = jwtUtil;
         this.userService = userService;
+        this.userRepository = userRepository;
     }
 
     @PostMapping("/login")
@@ -57,7 +61,13 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<Map<String, String>> register(@RequestBody LoginRequest request) {
-        boolean success = userService.register(request.getUsername(), request.getPassword());
+        boolean success = userService.register(
+                request.getUsername(),
+                request.getPassword(),
+                request.getName(),
+                request.getEmail(),
+                request.getPhone(),
+                request.getAddress());
         if (success) {
             return ResponseEntity.ok(Map.of("message", "Registration successful!"));
         } else {
@@ -82,9 +92,19 @@ public class AuthController {
     }
 
     @GetMapping("/profile")
-    public ResponseEntity<Map<String, String>> getProfile(HttpServletRequest request) {
+    public ResponseEntity<?> getProfile(HttpServletRequest request) {
         String username = (String) request.getAttribute("username");
-        return ResponseEntity.ok(Map.of("username", username));
+        Optional<User> user = userRepository.findByUsername(username);
+        if (user.isPresent()) {
+            User u = user.get();
+            return ResponseEntity.ok(Map.of(
+                    "username", u.getUsername() != null ? u.getUsername() : "",
+                    "name", u.getName() != null ? u.getName() : "",
+                    "email", u.getEmail() != null ? u.getEmail() : "",
+                    "phone", u.getPhone() != null ? u.getPhone() : "",
+                    "address", u.getAddress() != null ? u.getAddress() : ""));
+        }
+        return ResponseEntity.status(404).body(Map.of("message", "User not found"));
     }
 
     @PostMapping("/logout")
