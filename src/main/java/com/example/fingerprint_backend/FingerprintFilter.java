@@ -42,7 +42,7 @@ public class FingerprintFilter extends OncePerRequestFilter {
 
         String expectedFingerprint = sessionRegistry.getFingerprint(username);
 
-        if (expectedFingerprint != null && !expectedFingerprint.equals(incomingFingerprint)) {
+        if (expectedFingerprint == null || !expectedFingerprint.equals(incomingFingerprint)) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Fingerprint mismatch");
             return;
         }

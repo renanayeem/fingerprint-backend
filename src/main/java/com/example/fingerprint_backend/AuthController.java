@@ -75,6 +75,18 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("message", "Data posted successfully!"));
     }
 
+    @GetMapping("/secure")
+    public ResponseEntity<Map<String, String>> secureEndpoint(HttpServletRequest request) {
+        String username = (String) request.getAttribute("username");
+        return ResponseEntity.ok(Map.of("message", "Secure endpoint accessed by: " + username));
+    }
+
+    @GetMapping("/profile")
+    public ResponseEntity<Map<String, String>> getProfile(HttpServletRequest request) {
+        String username = (String) request.getAttribute("username");
+        return ResponseEntity.ok(Map.of("username", username));
+    }
+
     @PostMapping("/logout")
     public ResponseEntity<Map<String, String>> logout(
             HttpServletRequest request,
