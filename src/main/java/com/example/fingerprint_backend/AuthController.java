@@ -2,6 +2,7 @@ package com.example.fingerprint_backend;
 
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import jakarta.servlet.http.Cookie;
@@ -17,13 +18,15 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final UserService userService;
     private final UserRepository userRepository;
+    private final VehicleRepository vehicleRepository;
 
     public AuthController(SessionRegistry sessionRegistry, JwtUtil jwtUtil, UserService userService,
-            UserRepository userRepository) {
+            UserRepository userRepository, VehicleRepository vehicleRepository) {
         this.sessionRegistry = sessionRegistry;
         this.jwtUtil = jwtUtil;
         this.userService = userService;
         this.userRepository = userRepository;
+        this.vehicleRepository = vehicleRepository;
     }
 
     @PostMapping("/login")
@@ -105,6 +108,27 @@ public class AuthController {
                     "address", u.getAddress() != null ? u.getAddress() : ""));
         }
         return ResponseEntity.status(404).body(Map.of("message", "User not found"));
+    }
+
+    @GetMapping("/vehicles")
+    public ResponseEntity<?> getVehicles(HttpServletRequest request) {
+        String username = (String) request.getAttribute("username");
+        List<Vehicle> vehicles = vehicleRepository.findByOwnerUsername(username);
+        return ResponseEntity.ok(vehicles);
+    }
+
+    @PostMapping("/vehicles")
+    public ResponseEntity<Map<String, String>> addVehicle(
+            @RequestBody VehicleRequest request,
+            HttpServletRequest httpRequest) {
+        String username = (String) httpRequest.getAttribute("username");
+        Vehicle vehicle = new Vehicle();
+        vehicle.setOwnerUsername(username);
+        vehicle.setVehicleName(request.getVehicleName());
+        vehicle.setVehicleNumber(request.getVehicleNumber());
+        vehicle.setVehicleType(request.getVehicleType());
+        vehicleRepository.save(vehicle);
+        return ResponseEntity.ok(Map.of("message", "Vehicle added successfully!"));
     }
 
     @PostMapping("/logout")
