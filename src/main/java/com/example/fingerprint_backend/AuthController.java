@@ -38,28 +38,35 @@ public class AuthController {
         String password = request.getPassword();
         String fingerprint = request.getFingerprint();
 
-        if (userService.validateUser(username, password)) {
-            sessionRegistry.saveFingerprint(username, fingerprint);
-
-            Cookie fingerprintCookie = new Cookie("fingerprint", fingerprint);
-            fingerprintCookie.setHttpOnly(true);
-            fingerprintCookie.setPath("/");
-            fingerprintCookie.setMaxAge(8 * 60 * 60);
-            response.addCookie(fingerprintCookie);
-
-            String token = jwtUtil.generateToken(username);
-
-            Cookie jwtCookie = new Cookie("jwt", token);
-            jwtCookie.setHttpOnly(true);
-            jwtCookie.setPath("/");
-            jwtCookie.setMaxAge(24 * 60 * 60);
-            response.addCookie(jwtCookie);
-
-            System.out.println("Login successful for: " + username);
-            return ResponseEntity.ok(Map.of("message", "Login successful!"));
-        } else {
+        if (!userService.validateUser(username, password)) {
             return ResponseEntity.status(401).body(Map.of("message", "Invalid credentials!"));
         }
+
+        // Only store fingerprint if no active session exists.
+        // If a session already exists (Browser 1), Browser 2's fingerprint is NOT saved
+        // —
+        // so Browser 2's subsequent API calls will fail the fingerprint check.
+        String existingFingerprint = sessionRegistry.getFingerprint(username);
+        if (existingFingerprint == null) {
+            sessionRegistry.saveFingerprint(username, fingerprint);
+        }
+
+        Cookie fingerprintCookie = new Cookie("fingerprint", fingerprint);
+        fingerprintCookie.setHttpOnly(true);
+        fingerprintCookie.setPath("/");
+        fingerprintCookie.setMaxAge(8 * 60 * 60);
+        response.addCookie(fingerprintCookie);
+
+        String token = jwtUtil.generateToken(username);
+
+        Cookie jwtCookie = new Cookie("jwt", token);
+        jwtCookie.setHttpOnly(true);
+        jwtCookie.setPath("/");
+        jwtCookie.setMaxAge(24 * 60 * 60);
+        response.addCookie(jwtCookie);
+
+        System.out.println("Login successful for: " + username);
+        return ResponseEntity.ok(Map.of("message", "Login successful!"));
     }
 
     @PostMapping("/register")
