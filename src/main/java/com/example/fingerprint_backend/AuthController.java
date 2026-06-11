@@ -42,13 +42,15 @@ public class AuthController {
             return ResponseEntity.status(401).body(Map.of("message", "Invalid credentials!"));
         }
 
-        // Only store fingerprint if no active session exists.
-        // If a session already exists (Browser 1), Browser 2's fingerprint is NOT saved
-        // —
-        // so Browser 2's subsequent API calls will fail the fingerprint check.
         String existingFingerprint = sessionRegistry.getFingerprint(username);
+        System.out.println("Existing fingerprint in Redis: " + existingFingerprint);
+        System.out.println("Incoming fingerprint: " + fingerprint);
+
         if (existingFingerprint == null) {
             sessionRegistry.saveFingerprint(username, fingerprint);
+            System.out.println("Saved new fingerprint for: " + username);
+        } else {
+            System.out.println("Session already exists, not overwriting for: " + username);
         }
 
         String token = jwtUtil.generateToken(username);
@@ -138,8 +140,17 @@ public class AuthController {
             HttpServletResponse response) {
 
         String username = (String) request.getAttribute("username");
+        String incomingFingerprint = request.getHeader("X-Client-Fingerprint");
+
         if (username != null) {
-            sessionRegistry.delete(username);
+            String storedFingerprint = sessionRegistry.getFingerprint(username);
+            // Only delete Redis session if fingerprint matches — legitimate user
+            if (storedFingerprint != null && storedFingerprint.equals(incomingFingerprint)) {
+                sessionRegistry.delete(username);
+                System.out.println("Session deleted for: " + username);
+            } else {
+                System.out.println("Logout blocked — fingerprint mismatch for: " + username);
+            }
         }
 
         Cookie jwtCookie = new Cookie("jwt", null);
