@@ -25,7 +25,7 @@ public class FingerprintFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
-        if (path.equals("/api/login") || path.equals("/api/register")) {
+        if (path.equals("/api/login") || path.equals("/api/register") || path.equals("/api/logout")) {
             filterChain.doFilter(request, response);
             return;
         }
