@@ -51,12 +51,6 @@ public class AuthController {
             sessionRegistry.saveFingerprint(username, fingerprint);
         }
 
-        Cookie fingerprintCookie = new Cookie("fingerprint", fingerprint);
-        fingerprintCookie.setHttpOnly(true);
-        fingerprintCookie.setPath("/");
-        fingerprintCookie.setMaxAge(8 * 60 * 60);
-        response.addCookie(fingerprintCookie);
-
         String token = jwtUtil.generateToken(username);
 
         Cookie jwtCookie = new Cookie("jwt", token);
@@ -147,12 +141,6 @@ public class AuthController {
         if (username != null) {
             sessionRegistry.delete(username);
         }
-
-        Cookie fingerprintCookie = new Cookie("fingerprint", null);
-        fingerprintCookie.setHttpOnly(true);
-        fingerprintCookie.setPath("/");
-        fingerprintCookie.setMaxAge(0);
-        response.addCookie(fingerprintCookie);
 
         Cookie jwtCookie = new Cookie("jwt", null);
         jwtCookie.setHttpOnly(true);

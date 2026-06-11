@@ -2,14 +2,12 @@ package com.example.fingerprint_backend;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Arrays;
 
 @Component
 public class FingerprintFilter extends OncePerRequestFilter {
@@ -32,7 +30,7 @@ public class FingerprintFilter extends OncePerRequestFilter {
             return;
         }
 
-        String incomingFingerprint = extractCookie(request, "fingerprint");
+        String incomingFingerprint = request.getHeader("X-Client-Fingerprint");
         String username = (String) request.getAttribute("username");
 
         if (username == null) {
@@ -48,15 +46,5 @@ public class FingerprintFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
-    }
-
-    private String extractCookie(HttpServletRequest request, String name) {
-        if (request.getCookies() == null)
-            return null;
-        return Arrays.stream(request.getCookies())
-                .filter(c -> c.getName().equals(name))
-                .map(Cookie::getValue)
-                .findFirst()
-                .orElse(null);
     }
 }
