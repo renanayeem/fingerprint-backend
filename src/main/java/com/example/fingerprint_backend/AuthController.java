@@ -144,12 +144,11 @@ public class AuthController {
 
         if (username != null) {
             String storedFingerprint = sessionRegistry.getFingerprint(username);
-            // Only delete Redis session if fingerprint matches — legitimate user
             if (storedFingerprint != null && storedFingerprint.equals(incomingFingerprint)) {
                 sessionRegistry.delete(username);
                 System.out.println("Session deleted for: " + username);
             } else {
-                System.out.println("Logout blocked — fingerprint mismatch for: " + username);
+                System.out.println("Logout blocked - fingerprint mismatch for: " + username);
             }
         }
 

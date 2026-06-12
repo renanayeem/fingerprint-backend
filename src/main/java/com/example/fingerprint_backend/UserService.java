@@ -7,6 +7,8 @@ import java.util.Optional;
 @Service
 public class UserService {
 
+    // spring dependency injection example here : spring automatically gives
+    // Userservice a Userrepository
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -14,6 +16,7 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
+    // user registration
     public boolean register(String username, String password, String name, String email, String phone, String address) {
         if (userRepository.findByUsername(username).isPresent()) {
             return false;
@@ -29,8 +32,26 @@ public class UserService {
         return true;
     }
 
+    // login validation
     public boolean validateUser(String username, String password) {
+
+        System.out.println("Login attempt:");
+        System.out.println("Username entered: " + username);
+
         Optional<User> user = userRepository.findByUsername(username);
-        return user.isPresent() && passwordEncoder.matches(password, user.get().getPassword());
+
+        System.out.println("User found? " + user.isPresent());
+
+        if (user.isPresent()) {
+            System.out.println("Stored hash: " + user.get().getPassword());
+
+            boolean matches = passwordEncoder.matches(password, user.get().getPassword());
+
+            System.out.println("Password matches? " + matches);
+
+            return matches;
+        }
+
+        return false;
     }
 }

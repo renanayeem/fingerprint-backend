@@ -33,11 +33,13 @@ public class JwtFilter extends OncePerRequestFilter {
         if (token != null && jwtUtil.validateToken(token)) {
             String username = jwtUtil.getUsernameFromToken(token);
             request.setAttribute("username", username);
+            //informing spring security that the user is authenticated
             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(username, null,
                     new ArrayList<>());
             SecurityContextHolder.getContext().setAuthentication(auth);
         }
 
+        //done checking jwt , continue processing request
         filterChain.doFilter(request, response);
     }
 
