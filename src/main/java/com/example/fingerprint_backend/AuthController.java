@@ -46,12 +46,14 @@ public class AuthController {
         String existingFingerprint = sessionRegistry.getFingerprint(username);
         log.info("Existing fingerprint in Redis: {}", existingFingerprint != null ? "found" : "not found");
 
-        if (existingFingerprint == null) {
-            sessionRegistry.saveFingerprint(username, fingerprint);
-            log.info("Saved new fingerprint for: {}", username);
-        } else {
-            log.info("Session already exists, not overwriting for: {}", username);
+        if (existingFingerprint != null) {
+            log.info("Session already exists for: {}", username);
+            return ResponseEntity.status(409).body(Map.of("message",
+                    "Active session exists on another device. Please logout from that device first."));
         }
+
+        sessionRegistry.saveFingerprint(username, fingerprint);
+        log.info("Saved new fingerprint for: {}", username);
 
         String token = jwtUtil.generateToken(username);
         response.setHeader("Set-Cookie", "jwt=" + token + "; HttpOnly; Path=/; Max-Age=86400; SameSite=Strict");
