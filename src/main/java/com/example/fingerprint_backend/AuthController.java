@@ -20,16 +20,14 @@ public class AuthController {
     private final SessionRegistry sessionRegistry;
     private final JwtUtil jwtUtil;
     private final UserService userService;
-    private final UserRepository userRepository;
-    private final VehicleRepository vehicleRepository;
+    private final VehicleService vehicleService;
 
     public AuthController(SessionRegistry sessionRegistry, JwtUtil jwtUtil, UserService userService,
-            UserRepository userRepository, VehicleRepository vehicleRepository) {
+            VehicleService vehicleService) {
         this.sessionRegistry = sessionRegistry;
         this.jwtUtil = jwtUtil;
         this.userService = userService;
-        this.userRepository = userRepository;
-        this.vehicleRepository = vehicleRepository;
+        this.vehicleService = vehicleService;
     }
 
     @PostMapping("/login")
@@ -56,7 +54,6 @@ public class AuthController {
         }
 
         String token = jwtUtil.generateToken(username);
-
         response.setHeader("Set-Cookie", "jwt=" + token + "; HttpOnly; Path=/; Max-Age=86400; SameSite=Strict");
 
         log.info("Login successful for: {}", username);
@@ -98,15 +95,9 @@ public class AuthController {
     @GetMapping("/profile")
     public ResponseEntity<?> getProfile(HttpServletRequest request) {
         String username = (String) request.getAttribute("username");
-        Optional<User> user = userRepository.findByUsername(username);
-        if (user.isPresent()) {
-            User u = user.get();
-            return ResponseEntity.ok(Map.of(
-                    "username", u.getUsername() != null ? u.getUsername() : "",
-                    "name", u.getName() != null ? u.getName() : "",
-                    "email", u.getEmail() != null ? u.getEmail() : "",
-                    "phone", u.getPhone() != null ? u.getPhone() : "",
-                    "address", u.getAddress() != null ? u.getAddress() : ""));
+        Optional<Map<String, String>> profile = userService.getProfile(username);
+        if (profile.isPresent()) {
+            return ResponseEntity.ok(profile.get());
         }
         return ResponseEntity.status(404).body(Map.of("message", "User not found"));
     }
@@ -114,7 +105,7 @@ public class AuthController {
     @GetMapping("/vehicles")
     public ResponseEntity<?> getVehicles(HttpServletRequest request) {
         String username = (String) request.getAttribute("username");
-        List<Vehicle> vehicles = vehicleRepository.findByOwnerUsername(username);
+        List<Vehicle> vehicles = vehicleService.getVehicles(username);
         return ResponseEntity.ok(vehicles);
     }
 
@@ -123,12 +114,7 @@ public class AuthController {
             @RequestBody VehicleRequest request,
             HttpServletRequest httpRequest) {
         String username = (String) httpRequest.getAttribute("username");
-        Vehicle vehicle = new Vehicle();
-        vehicle.setOwnerUsername(username);
-        vehicle.setVehicleName(request.getVehicleName());
-        vehicle.setVehicleNumber(request.getVehicleNumber());
-        vehicle.setVehicleType(request.getVehicleType());
-        vehicleRepository.save(vehicle);
+        vehicleService.addVehicle(username, request);
         return ResponseEntity.ok(Map.of("message", "Vehicle added successfully!"));
     }
 
@@ -151,7 +137,6 @@ public class AuthController {
         }
 
         response.setHeader("Set-Cookie", "jwt=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict");
-
         return ResponseEntity.ok(Map.of("message", "Logged out successfully!"));
     }
 }

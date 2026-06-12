@@ -4,6 +4,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -11,8 +12,6 @@ public class UserService {
 
     private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
-    // spring dependency injection example here : spring automatically gives
-    // Userservice a Userrepository
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -38,19 +37,29 @@ public class UserService {
 
     // login validation
     public boolean validateUser(String username, String password) {
-
         log.info("Login attempt for username: {}", username);
-
         Optional<User> user = userRepository.findByUsername(username);
-
         log.info("User found: {}", user.isPresent());
-
         if (user.isPresent()) {
             boolean matches = passwordEncoder.matches(password, user.get().getPassword());
             log.info("Password matches: {}", matches);
             return matches;
         }
-
         return false;
+    }
+
+    // get user profile
+    public Optional<Map<String, String>> getProfile(String username) {
+        Optional<User> user = userRepository.findByUsername(username);
+        if (user.isPresent()) {
+            User u = user.get();
+            return Optional.of(Map.of(
+                    "username", u.getUsername() != null ? u.getUsername() : "",
+                    "name", u.getName() != null ? u.getName() : "",
+                    "email", u.getEmail() != null ? u.getEmail() : "",
+                    "phone", u.getPhone() != null ? u.getPhone() : "",
+                    "address", u.getAddress() != null ? u.getAddress() : ""));
+        }
+        return Optional.empty();
     }
 }
