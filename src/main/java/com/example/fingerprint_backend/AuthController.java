@@ -55,11 +55,7 @@ public class AuthController {
 
         String token = jwtUtil.generateToken(username);
 
-        Cookie jwtCookie = new Cookie("jwt", token);
-        jwtCookie.setHttpOnly(true);
-        jwtCookie.setPath("/");
-        jwtCookie.setMaxAge(24 * 60 * 60);
-        response.addCookie(jwtCookie);
+        response.setHeader("Set-Cookie", "jwt=" + token + "; HttpOnly; Path=/; Max-Age=86400; SameSite=Strict");
 
         System.out.println("Login successful for: " + username);
         return ResponseEntity.ok(Map.of("message", "Login successful!"));
@@ -152,11 +148,7 @@ public class AuthController {
             }
         }
 
-        Cookie jwtCookie = new Cookie("jwt", null);
-        jwtCookie.setHttpOnly(true);
-        jwtCookie.setPath("/");
-        jwtCookie.setMaxAge(0);
-        response.addCookie(jwtCookie);
+        response.setHeader("Set-Cookie", "jwt=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict");
 
         return ResponseEntity.ok(Map.of("message", "Logged out successfully!"));
     }
