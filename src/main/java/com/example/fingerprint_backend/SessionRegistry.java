@@ -16,7 +16,7 @@ public class SessionRegistry {
     }
 
     public void saveFingerprint(String sessionId, String fingerprintHash) {
-        redisTemplate.opsForValue().set(PREFIX + sessionId, fingerprintHash, Duration.ofHours(8));
+        redisTemplate.opsForValue().set(PREFIX + sessionId, fingerprintHash, Duration.ofHours(24));
     }
 
     public String getFingerprint(String sessionId) {
