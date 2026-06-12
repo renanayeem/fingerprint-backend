@@ -5,7 +5,8 @@ import org.springframework.http.ResponseEntity;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import jakarta.servlet.http.Cookie;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -13,6 +14,8 @@ import jakarta.servlet.http.HttpServletResponse;
 @RequestMapping("/api")
 @CrossOrigin(origins = "http://localhost:4200", allowCredentials = "true")
 public class AuthController {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
     private final SessionRegistry sessionRegistry;
     private final JwtUtil jwtUtil;
@@ -43,21 +46,20 @@ public class AuthController {
         }
 
         String existingFingerprint = sessionRegistry.getFingerprint(username);
-        System.out.println("Existing fingerprint in Redis: " + existingFingerprint);
-        System.out.println("Incoming fingerprint: " + fingerprint);
+        log.info("Existing fingerprint in Redis: {}", existingFingerprint != null ? "found" : "not found");
 
         if (existingFingerprint == null) {
             sessionRegistry.saveFingerprint(username, fingerprint);
-            System.out.println("Saved new fingerprint for: " + username);
+            log.info("Saved new fingerprint for: {}", username);
         } else {
-            System.out.println("Session already exists, not overwriting for: " + username);
+            log.info("Session already exists, not overwriting for: {}", username);
         }
 
         String token = jwtUtil.generateToken(username);
 
         response.setHeader("Set-Cookie", "jwt=" + token + "; HttpOnly; Path=/; Max-Age=86400; SameSite=Strict");
 
-        System.out.println("Login successful for: " + username);
+        log.info("Login successful for: {}", username);
         return ResponseEntity.ok(Map.of("message", "Login successful!"));
     }
 
@@ -142,9 +144,9 @@ public class AuthController {
             String storedFingerprint = sessionRegistry.getFingerprint(username);
             if (storedFingerprint != null && storedFingerprint.equals(incomingFingerprint)) {
                 sessionRegistry.delete(username);
-                System.out.println("Session deleted for: " + username);
+                log.info("Session deleted for: {}", username);
             } else {
-                System.out.println("Logout blocked - fingerprint mismatch for: " + username);
+                log.warn("Logout blocked - fingerprint mismatch for: {}", username);
             }
         }
 

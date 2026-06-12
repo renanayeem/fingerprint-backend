@@ -2,10 +2,14 @@ package com.example.fingerprint_backend;
 
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.Optional;
 
 @Service
 public class UserService {
+
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
     // spring dependency injection example here : spring automatically gives
     // Userservice a Userrepository
@@ -35,20 +39,15 @@ public class UserService {
     // login validation
     public boolean validateUser(String username, String password) {
 
-        System.out.println("Login attempt:");
-        System.out.println("Username entered: " + username);
+        log.info("Login attempt for username: {}", username);
 
         Optional<User> user = userRepository.findByUsername(username);
 
-        System.out.println("User found? " + user.isPresent());
+        log.info("User found: {}", user.isPresent());
 
         if (user.isPresent()) {
-            System.out.println("Stored hash: " + user.get().getPassword());
-
             boolean matches = passwordEncoder.matches(password, user.get().getPassword());
-
-            System.out.println("Password matches? " + matches);
-
+            log.info("Password matches: {}", matches);
             return matches;
         }
 
