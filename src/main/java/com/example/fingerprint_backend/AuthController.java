@@ -48,16 +48,15 @@ public class AuthController {
             return ResponseEntity.status(401).body(Map.of("message", "Invalid credentials!"));
         }
 
-        String existingFingerprint = sessionRegistry.getFingerprint(username);
-        log.info("Existing fingerprint in Redis: {}", existingFingerprint != null ? "found" : "not found");
+        // Atomic session creation using SET NX
+        boolean saved = sessionRegistry.saveFingerprintIfAbsent(username, fingerprint);
 
-        if (existingFingerprint != null) {
+        if (!saved) {
             log.info("Session already exists for: {}", username);
             return ResponseEntity.status(409).body(Map.of("message",
                     "Active session exists on another device. Please logout from that device first."));
         }
 
-        sessionRegistry.saveFingerprint(username, fingerprint);
         log.info("Saved new fingerprint for: {}", username);
 
         String token = jwtUtil.generateToken(username);

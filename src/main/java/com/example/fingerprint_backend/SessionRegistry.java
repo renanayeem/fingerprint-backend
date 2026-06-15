@@ -15,6 +15,14 @@ public class SessionRegistry {
         this.redisTemplate = redisTemplate;
     }
 
+    public boolean saveFingerprintIfAbsent(String sessionId, String fingerprintHash) {
+        Boolean saved = redisTemplate.opsForValue().setIfAbsent(
+                PREFIX + sessionId,
+                fingerprintHash,
+                Duration.ofHours(24));
+        return Boolean.TRUE.equals(saved);
+    }
+
     public void saveFingerprint(String sessionId, String fingerprintHash) {
         redisTemplate.opsForValue().set(PREFIX + sessionId, fingerprintHash, Duration.ofHours(24));
     }
