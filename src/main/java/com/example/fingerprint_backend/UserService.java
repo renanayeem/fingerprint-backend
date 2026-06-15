@@ -34,6 +34,10 @@ public class UserService {
             return false;
         }
 
+        if (email != null && !email.isEmpty() && userRepository.findByEmail(email).isPresent()) {
+            throw new IllegalArgumentException("Email already exists!");
+        }
+
         User user = new User();
         user.setUsername(username);
         user.setPassword(passwordEncoder.encode(password));
