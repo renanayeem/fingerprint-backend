@@ -39,6 +39,11 @@ public class AuthController {
         String password = request.getPassword();
         String fingerprint = request.getFingerprint();
 
+        if (fingerprint == null || fingerprint.isEmpty()) {
+            log.warn("Login rejected - null or empty fingerprint for: {}", username);
+            return ResponseEntity.status(400).body(Map.of("message", "Fingerprint is required!"));
+        }
+
         if (!userService.validateUser(username, password)) {
             return ResponseEntity.status(401).body(Map.of("message", "Invalid credentials!"));
         }
@@ -133,12 +138,14 @@ public class AuthController {
             if (storedFingerprint != null && storedFingerprint.equals(incomingFingerprint)) {
                 sessionRegistry.delete(username);
                 log.info("Session deleted for: {}", username);
+                response.setHeader("Set-Cookie", "jwt=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict");
+                return ResponseEntity.ok(Map.of("message", "Logged out successfully!"));
             } else {
                 log.warn("Logout blocked - fingerprint mismatch for: {}", username);
+                return ResponseEntity.status(401).body(Map.of("message", "Logout failed - fingerprint mismatch!"));
             }
         }
 
-        response.setHeader("Set-Cookie", "jwt=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict");
-        return ResponseEntity.ok(Map.of("message", "Logged out successfully!"));
+        return ResponseEntity.status(401).body(Map.of("message", "Logout failed - no session found!"));
     }
 }
