@@ -2,11 +2,7 @@ package com.example.fingerprint_backend;
 
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -17,55 +13,19 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 @CrossOrigin(origins = "http://localhost:4200", allowCredentials = "true")
 public class AuthController {
 
-    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
-
-    private final SessionRegistry sessionRegistry;
-    private final JwtUtil jwtUtil;
+    private final AuthService authService;
     private final UserService userService;
-    private final VehicleService vehicleService;
 
-    public AuthController(SessionRegistry sessionRegistry, JwtUtil jwtUtil, UserService userService,
-            VehicleService vehicleService) {
-        this.sessionRegistry = sessionRegistry;
-        this.jwtUtil = jwtUtil;
+    public AuthController(AuthService authService, UserService userService) {
+        this.authService = authService;
         this.userService = userService;
-        this.vehicleService = vehicleService;
     }
 
     @PostMapping("/login")
     public ResponseEntity<Map<String, String>> login(
             @Valid @RequestBody LoginRequest request,
             HttpServletResponse response) {
-
-        String username = request.getUsername();
-        String password = request.getPassword();
-        String fingerprint = request.getFingerprint();
-
-        if (fingerprint == null || fingerprint.isEmpty()) {
-            log.warn("Login rejected - null or empty fingerprint for: {}", username);
-            return ResponseEntity.status(400).body(Map.of("message", "Fingerprint is required!"));
-        }
-
-        if (!userService.validateUser(username, password)) {
-            return ResponseEntity.status(401).body(Map.of("message", "Invalid credentials!"));
-        }
-
-        boolean saved = sessionRegistry.saveFingerprintIfAbsent(username, fingerprint);
-
-        if (!saved) {
-            log.info("Session already exists for: {}", username);
-            return ResponseEntity.status(409).body(Map.of("message",
-                    "Active session exists on another device. Please logout from that device first."));
-        }
-
-        log.info("Saved new fingerprint for: {}", username);
-
-        String token = jwtUtil.generateToken(username);
-        // TODO: Add "; Secure" flag when deploying to HTTPS in production
-        response.setHeader("Set-Cookie", "jwt=" + token + "; HttpOnly; Path=/; Max-Age=86400; SameSite=Strict");
-
-        log.info("Login successful for: {}", username);
-        return ResponseEntity.ok(Map.of("message", "Login successful!"));
+        return authService.login(request, response);
     }
 
     @PostMapping("/register")
@@ -88,6 +48,12 @@ public class AuthController {
         }
     }
 
+    @GetMapping("/secure")
+    public ResponseEntity<Map<String, String>> secureEndpoint(HttpServletRequest request) {
+        String username = (String) request.getAttribute("username");
+        return ResponseEntity.ok(Map.of("message", "Secure endpoint accessed by: " + username));
+    }
+
     @GetMapping("/data")
     public ResponseEntity<Map<String, String>> getData() {
         return ResponseEntity.ok(Map.of("message", "Data fetched successfully!"));
@@ -98,64 +64,11 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("message", "Data posted successfully!"));
     }
 
-    @GetMapping("/secure")
-    public ResponseEntity<Map<String, String>> secureEndpoint(HttpServletRequest request) {
-        String username = (String) request.getAttribute("username");
-        return ResponseEntity.ok(Map.of("message", "Secure endpoint accessed by: " + username));
-    }
-
-    @GetMapping("/profile")
-    public ResponseEntity<?> getProfile(HttpServletRequest request) {
-        String username = (String) request.getAttribute("username");
-        Optional<Map<String, String>> profile = userService.getProfile(username);
-        if (profile.isPresent()) {
-            return ResponseEntity.ok(profile.get());
-        }
-        return ResponseEntity.status(404).body(Map.of("message", "User not found"));
-    }
-
-    @GetMapping("/vehicles")
-    public ResponseEntity<?> getVehicles(HttpServletRequest request) {
-        String username = (String) request.getAttribute("username");
-        List<Vehicle> vehicles = vehicleService.getVehicles(username);
-        return ResponseEntity.ok(vehicles);
-    }
-
-    @PostMapping("/vehicles")
-    public ResponseEntity<Map<String, String>> addVehicle(
-            @RequestBody VehicleRequest request,
-            HttpServletRequest httpRequest) {
-        try {
-            String username = (String) httpRequest.getAttribute("username");
-            vehicleService.addVehicle(username, request);
-            return ResponseEntity.ok(Map.of("message", "Vehicle added successfully!"));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(400).body(Map.of("message", e.getMessage()));
-        }
-    }
-
     @PostMapping("/logout")
     public ResponseEntity<Map<String, String>> logout(
             HttpServletRequest request,
             HttpServletResponse response) {
-
-        String username = (String) request.getAttribute("username");
-        String incomingFingerprint = request.getHeader("X-Client-Fingerprint");
-
-        if (username != null) {
-            String storedFingerprint = sessionRegistry.getFingerprint(username);
-            if (storedFingerprint != null && storedFingerprint.equals(incomingFingerprint)) {
-                sessionRegistry.delete(username);
-                log.info("Session deleted for: {}", username);
-                response.setHeader("Set-Cookie", "jwt=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict");
-                return ResponseEntity.ok(Map.of("message", "Logged out successfully!"));
-            } else {
-                log.warn("Logout blocked - fingerprint mismatch for: {}", username);
-                return ResponseEntity.status(401).body(Map.of("message", "Logout failed - fingerprint mismatch!"));
-            }
-        }
-
-        return ResponseEntity.status(401).body(Map.of("message", "Logout failed - no session found!"));
+        return authService.logout(request, response);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
