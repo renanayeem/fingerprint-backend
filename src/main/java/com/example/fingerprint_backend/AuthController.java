@@ -69,17 +69,21 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<Map<String, String>> register(@RequestBody LoginRequest request) {
-        boolean success = userService.register(
-                request.getUsername(),
-                request.getPassword(),
-                request.getName(),
-                request.getEmail(),
-                request.getPhone(),
-                request.getAddress());
-        if (success) {
-            return ResponseEntity.ok(Map.of("message", "Registration successful!"));
-        } else {
-            return ResponseEntity.status(400).body(Map.of("message", "Username already exists!"));
+        try {
+            boolean success = userService.register(
+                    request.getUsername(),
+                    request.getPassword(),
+                    request.getName(),
+                    request.getEmail(),
+                    request.getPhone(),
+                    request.getAddress());
+            if (success) {
+                return ResponseEntity.ok(Map.of("message", "Registration successful!"));
+            } else {
+                return ResponseEntity.status(400).body(Map.of("message", "Username already exists!"));
+            }
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("message", e.getMessage()));
         }
     }
 

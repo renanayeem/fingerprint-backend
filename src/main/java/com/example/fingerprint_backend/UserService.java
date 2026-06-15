@@ -19,11 +19,20 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
-    // user registration
     public boolean register(String username, String password, String name, String email, String phone, String address) {
+
+        if (username == null || username.isEmpty()) {
+            throw new IllegalArgumentException("Username is required!");
+        }
+
+        if (password == null || password.isEmpty()) {
+            throw new IllegalArgumentException("Password is required!");
+        }
+
         if (userRepository.findByUsername(username).isPresent()) {
             return false;
         }
+
         User user = new User();
         user.setUsername(username);
         user.setPassword(passwordEncoder.encode(password));
@@ -35,7 +44,6 @@ public class UserService {
         return true;
     }
 
-    // login validation
     public boolean validateUser(String username, String password) {
         log.info("Login attempt for username: {}", username);
         Optional<User> user = userRepository.findByUsername(username);
@@ -48,7 +56,6 @@ public class UserService {
         return false;
     }
 
-    // get user profile
     public Optional<Map<String, String>> getProfile(String username) {
         Optional<User> user = userRepository.findByUsername(username);
         if (user.isPresent()) {
