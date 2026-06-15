@@ -16,13 +16,21 @@ public class VehicleService {
         this.vehicleRepository = vehicleRepository;
     }
 
-    // get all vehicles for a user
     public List<Vehicle> getVehicles(String username) {
         return vehicleRepository.findByOwnerUsername(username);
     }
 
-    // add a new vehicle
     public void addVehicle(String username, VehicleRequest request) {
+        if (request.getVehicleName() == null || request.getVehicleName().isEmpty()) {
+            throw new IllegalArgumentException("Vehicle name is required!");
+        }
+        if (request.getVehicleNumber() == null || request.getVehicleNumber().isEmpty()) {
+            throw new IllegalArgumentException("Vehicle number is required!");
+        }
+        if (request.getVehicleType() == null || request.getVehicleType().isEmpty()) {
+            throw new IllegalArgumentException("Vehicle type is required!");
+        }
+
         Vehicle vehicle = new Vehicle();
         vehicle.setOwnerUsername(username);
         vehicle.setVehicleName(request.getVehicleName());

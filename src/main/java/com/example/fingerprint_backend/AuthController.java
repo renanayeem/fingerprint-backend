@@ -125,9 +125,13 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> addVehicle(
             @RequestBody VehicleRequest request,
             HttpServletRequest httpRequest) {
-        String username = (String) httpRequest.getAttribute("username");
-        vehicleService.addVehicle(username, request);
-        return ResponseEntity.ok(Map.of("message", "Vehicle added successfully!"));
+        try {
+            String username = (String) httpRequest.getAttribute("username");
+            vehicleService.addVehicle(username, request);
+            return ResponseEntity.ok(Map.of("message", "Vehicle added successfully!"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("message", e.getMessage()));
+        }
     }
 
     @PostMapping("/logout")
