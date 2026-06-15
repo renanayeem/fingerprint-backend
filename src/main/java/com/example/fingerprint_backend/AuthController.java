@@ -9,6 +9,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 
 @RestController
 @RequestMapping("/api")
@@ -32,7 +34,7 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<Map<String, String>> login(
-            @RequestBody LoginRequest request,
+            @Valid @RequestBody LoginRequest request,
             HttpServletResponse response) {
 
         String username = request.getUsername();
@@ -48,7 +50,6 @@ public class AuthController {
             return ResponseEntity.status(401).body(Map.of("message", "Invalid credentials!"));
         }
 
-        // Atomic session creation using SET NX
         boolean saved = sessionRegistry.saveFingerprintIfAbsent(username, fingerprint);
 
         if (!saved) {
@@ -60,6 +61,7 @@ public class AuthController {
         log.info("Saved new fingerprint for: {}", username);
 
         String token = jwtUtil.generateToken(username);
+        // TODO: Add "; Secure" flag when deploying to HTTPS in production
         response.setHeader("Set-Cookie", "jwt=" + token + "; HttpOnly; Path=/; Max-Age=86400; SameSite=Strict");
 
         log.info("Login successful for: {}", username);
@@ -67,7 +69,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<Map<String, String>> register(@RequestBody LoginRequest request) {
+    public ResponseEntity<Map<String, String>> register(@Valid @RequestBody LoginRequest request) {
         try {
             boolean success = userService.register(
                     request.getUsername(),
@@ -150,5 +152,14 @@ public class AuthController {
         }
 
         return ResponseEntity.status(401).body(Map.of("message", "Logout failed - no session found!"));
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, String>> handleValidationErrors(MethodArgumentNotValidException ex) {
+        String errorMessage = ex.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getDefaultMessage())
+                .findFirst()
+                .orElse("Validation failed!");
+        return ResponseEntity.status(400).body(Map.of("message", errorMessage));
     }
 }
