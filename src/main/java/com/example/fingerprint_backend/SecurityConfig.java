@@ -16,10 +16,12 @@ public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
     private final FingerprintFilter fingerprintFilter;
+    private final HmacFilter hmacFilter;
 
-    public SecurityConfig(JwtFilter jwtFilter, FingerprintFilter fingerprintFilter) {
+    public SecurityConfig(JwtFilter jwtFilter, FingerprintFilter fingerprintFilter, HmacFilter hmacFilter) {
         this.jwtFilter = jwtFilter;
         this.fingerprintFilter = fingerprintFilter;
+        this.hmacFilter = hmacFilter;
     }
 
     @Bean
@@ -40,7 +42,8 @@ public class SecurityConfig {
                         .authenticationEntryPoint((request, response, authException) -> response
                                 .sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized")))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(fingerprintFilter, JwtFilter.class);
+                .addFilterAfter(fingerprintFilter, JwtFilter.class)
+                .addFilterAfter(hmacFilter, FingerprintFilter.class);
 
         return http.build();
     }

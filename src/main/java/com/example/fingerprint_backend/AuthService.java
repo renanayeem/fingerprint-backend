@@ -4,6 +4,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -12,6 +14,7 @@ import jakarta.servlet.http.HttpServletResponse;
 public class AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+    private static final SecureRandom secureRandom = new SecureRandom();
 
     private final SessionRegistry sessionRegistry;
     private final JwtUtil jwtUtil;
@@ -23,7 +26,7 @@ public class AuthService {
         this.userService = userService;
     }
 
-    public ResponseEntity<Map<String, String>> login(LoginRequest request, HttpServletResponse response) {
+    public ResponseEntity<Map<String, Object>> login(LoginRequest request, HttpServletResponse response) {
         String username = request.getUsername();
         String password = request.getPassword();
         String fingerprint = request.getFingerprint();
@@ -46,11 +49,19 @@ public class AuthService {
         }
 
         log.info("Saved new fingerprint for: {}", username);
+
+        String sessionSecret = generateSecret();
+        sessionRegistry.saveSecret(username, sessionSecret);
+        log.info("Saved session secret for: {}", username);
+
         String token = jwtUtil.generateToken(username);
         // TODO: Add "; Secure" flag when deploying to HTTPS in production
         response.setHeader("Set-Cookie", "jwt=" + token + "; HttpOnly; Path=/; Max-Age=86400; SameSite=Strict");
         log.info("Login successful for: {}", username);
-        return ResponseEntity.ok(Map.of("message", "Login successful!"));
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Login successful!",
+                "sessionSecret", sessionSecret));
     }
 
     public ResponseEntity<Map<String, String>> logout(HttpServletRequest request, HttpServletResponse response) {
@@ -70,5 +81,11 @@ public class AuthService {
             }
         }
         return ResponseEntity.status(401).body(Map.of("message", "Logout failed - no session found!"));
+    }
+
+    private String generateSecret() {
+        byte[] bytes = new byte[32];
+        secureRandom.nextBytes(bytes);
+        return Base64.getEncoder().encodeToString(bytes);
     }
 }

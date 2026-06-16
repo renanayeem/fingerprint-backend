@@ -22,7 +22,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> login(
+    public ResponseEntity<Map<String, Object>> login(
             @Valid @RequestBody LoginRequest request,
             HttpServletResponse response) {
         return authService.login(request, response);
