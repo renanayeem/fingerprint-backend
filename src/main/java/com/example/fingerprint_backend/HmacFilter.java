@@ -1,15 +1,18 @@
 package com.example.fingerprint_backend;
 
 import jakarta.servlet.FilterChain;
+import jakarta.servlet.ReadListener;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.util.ContentCachingRequestWrapper;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
@@ -43,9 +46,6 @@ public class HmacFilter extends OncePerRequestFilter {
             return;
         }
 
-        // wrap so the body can be read again later by the controller
-        ContentCachingRequestWrapper wrappedRequest = new ContentCachingRequestWrapper(request);
-
         String username = (String) request.getAttribute("username");
         String fingerprint = request.getHeader("X-Client-Fingerprint");
         String signature = request.getHeader("X-Signature");
@@ -70,13 +70,8 @@ public class HmacFilter extends OncePerRequestFilter {
             return;
         }
 
-        // read body to compute payload hash, this also caches it for later reads
-        byte[] bodyBytes = wrappedRequest.getContentAsByteArray();
-        if (bodyBytes.length == 0) {
-            // for POST requests with no body (e.g. logout), trigger the actual read
-            wrappedRequest.getInputStream().readAllBytes();
-            bodyBytes = wrappedRequest.getContentAsByteArray();
-        }
+        // read the raw body ONCE into our own byte array
+        byte[] bodyBytes = request.getInputStream().readAllBytes();
         String body = new String(bodyBytes, StandardCharsets.UTF_8);
         String payloadHash = hmacUtil.hashPayload(body);
 
@@ -88,7 +83,38 @@ public class HmacFilter extends OncePerRequestFilter {
             return;
         }
 
-        filterChain.doFilter(wrappedRequest, response);
+        // re-wrap the request so the controller can still read the body normally,
+        // backed by the bytes we already consumed above
+        HttpServletRequest replayableRequest = new HttpServletRequestWrapper(request) {
+            @Override
+            public ServletInputStream getInputStream() {
+                return new ServletInputStream() {
+                    private final ByteArrayInputStream buffer = new ByteArrayInputStream(bodyBytes);
+
+                    @Override
+                    public int read() {
+                        return buffer.read();
+                    }
+
+                    @Override
+                    public boolean isFinished() {
+                        return buffer.available() == 0;
+                    }
+
+                    @Override
+                    public boolean isReady() {
+                        return true;
+                    }
+
+                    @Override
+                    public void setReadListener(ReadListener readListener) {
+                        // not needed for this use case
+                    }
+                };
+            }
+        };
+
+        filterChain.doFilter(replayableRequest, response);
     }
 
     private boolean isTimestampFresh(String timestampStr) {
