@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -22,12 +23,12 @@ public class HmacFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(HmacFilter.class);
     private static final long MAX_TIMESTAMP_DRIFT_MS = 5 * 60 * 1000; // 5 minutes
 
-    private final SessionRegistry sessionRegistry;
     private final HmacUtil hmacUtil;
+    private final String sharedSecret;
 
-    public HmacFilter(SessionRegistry sessionRegistry, HmacUtil hmacUtil) {
-        this.sessionRegistry = sessionRegistry;
+    public HmacFilter(HmacUtil hmacUtil, @Value("${hmac.secret}") String sharedSecret) {
         this.hmacUtil = hmacUtil;
+        this.sharedSecret = sharedSecret;
     }
 
     @Override
@@ -46,27 +47,19 @@ public class HmacFilter extends OncePerRequestFilter {
             return;
         }
 
-        String username = (String) request.getAttribute("username");
         String fingerprint = request.getHeader("X-Client-Fingerprint");
         String signature = request.getHeader("X-Signature");
         String timestamp = request.getHeader("X-Timestamp");
 
-        if (username == null || signature == null || timestamp == null) {
+        if (fingerprint == null || signature == null || timestamp == null) {
             log.warn("HMAC verification failed - missing required fields for path: {}", path);
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Missing signature headers");
             return;
         }
 
         if (!isTimestampFresh(timestamp)) {
-            log.warn("HMAC verification failed - stale timestamp for: {}", username);
+            log.warn("HMAC verification failed - stale timestamp for path: {}", path);
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Request expired");
-            return;
-        }
-
-        String secret = sessionRegistry.getSecret(username);
-        if (secret == null) {
-            log.warn("HMAC verification failed - no secret found for: {}", username);
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "No active session secret");
             return;
         }
 
@@ -75,10 +68,10 @@ public class HmacFilter extends OncePerRequestFilter {
         String body = new String(bodyBytes, StandardCharsets.UTF_8);
         String payloadHash = hmacUtil.hashPayload(body);
 
-        String expectedSignature = hmacUtil.computeSignature(fingerprint, payloadHash, timestamp, secret);
+        String expectedSignature = hmacUtil.computeSignature(fingerprint, payloadHash, timestamp, sharedSecret);
 
         if (!expectedSignature.equals(signature)) {
-            log.warn("HMAC verification failed - signature mismatch for: {}", username);
+            log.warn("HMAC verification failed - signature mismatch for path: {}", path);
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid signature");
             return;
         }
