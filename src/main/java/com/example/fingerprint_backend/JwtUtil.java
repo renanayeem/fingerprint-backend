@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import java.security.Key;
 import java.util.Base64;
 import java.util.Date;
+import java.util.UUID;
 
 @Component
 public class JwtUtil {
@@ -21,8 +22,10 @@ public class JwtUtil {
 
     // token creation
     public String generateToken(String username) {
+        String jti = UUID.randomUUID().toString();
         return Jwts.builder()
                 .setSubject(username)
+                .setId(jti)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION))
                 .signWith(secretKey)
@@ -37,6 +40,16 @@ public class JwtUtil {
                 .parseClaimsJws(token)
                 .getBody()
                 .getSubject();
+    }
+
+    // extracting jti from token
+    public String getJtiFromToken(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(secretKey)
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .getId();
     }
 
     // validating tokens

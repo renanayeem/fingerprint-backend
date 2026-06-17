@@ -16,11 +16,13 @@ public class AuthService {
     private final SessionRegistry sessionRegistry;
     private final JwtUtil jwtUtil;
     private final UserService userService;
+    private final HmacUtil hmacUtil;
 
-    public AuthService(SessionRegistry sessionRegistry, JwtUtil jwtUtil, UserService userService) {
+    public AuthService(SessionRegistry sessionRegistry, JwtUtil jwtUtil, UserService userService, HmacUtil hmacUtil) {
         this.sessionRegistry = sessionRegistry;
         this.jwtUtil = jwtUtil;
         this.userService = userService;
+        this.hmacUtil = hmacUtil;
     }
 
     public ResponseEntity<Map<String, String>> login(LoginRequest request, HttpServletResponse response) {
@@ -37,7 +39,11 @@ public class AuthService {
             return ResponseEntity.status(401).body(Map.of("message", "Invalid credentials!"));
         }
 
-        boolean saved = sessionRegistry.saveFingerprintIfAbsent(username, fingerprint);
+        String token = jwtUtil.generateToken(username);
+        String jti = jwtUtil.getJtiFromToken(token);
+        String rotatedFingerprint = hmacUtil.hashPayload(fingerprint + jti);
+
+        boolean saved = sessionRegistry.saveFingerprintIfAbsent(username, rotatedFingerprint);
 
         if (!saved) {
             log.info("Session already exists for: {}", username);
@@ -45,9 +51,8 @@ public class AuthService {
                     "Active session exists on another device. Please logout from that device first."));
         }
 
-        log.info("Saved new fingerprint for: {}", username);
+        log.info("Saved new rotated fingerprint for: {}", username);
 
-        String token = jwtUtil.generateToken(username);
         // TODO: Add "; Secure" flag when deploying to HTTPS in production
         response.setHeader("Set-Cookie", "jwt=" + token + "; HttpOnly; Path=/; Max-Age=86400; SameSite=Strict");
         log.info("Login successful for: {}", username);
@@ -57,11 +62,13 @@ public class AuthService {
 
     public ResponseEntity<Map<String, String>> logout(HttpServletRequest request, HttpServletResponse response) {
         String username = (String) request.getAttribute("username");
+        String jti = (String) request.getAttribute("jti");
         String incomingFingerprint = request.getHeader("X-Client-Fingerprint");
 
-        if (username != null) {
+        if (username != null && jti != null && incomingFingerprint != null) {
+            String rotatedFingerprint = hmacUtil.hashPayload(incomingFingerprint + jti);
             String storedFingerprint = sessionRegistry.getFingerprint(username);
-            if (storedFingerprint != null && storedFingerprint.equals(incomingFingerprint)) {
+            if (storedFingerprint != null && storedFingerprint.equals(rotatedFingerprint)) {
                 sessionRegistry.delete(username);
                 log.info("Session deleted for: {}", username);
                 response.setHeader("Set-Cookie", "jwt=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict");

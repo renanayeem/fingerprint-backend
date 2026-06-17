@@ -13,9 +13,11 @@ import java.io.IOException;
 public class FingerprintFilter extends OncePerRequestFilter {
 
     private final SessionRegistry sessionRegistry;
+    private final HmacUtil hmacUtil;
 
-    public FingerprintFilter(SessionRegistry sessionRegistry) {
+    public FingerprintFilter(SessionRegistry sessionRegistry, HmacUtil hmacUtil) {
         this.sessionRegistry = sessionRegistry;
+        this.hmacUtil = hmacUtil;
     }
 
     @Override
@@ -32,15 +34,18 @@ public class FingerprintFilter extends OncePerRequestFilter {
 
         String incomingFingerprint = request.getHeader("X-Client-Fingerprint");
         String username = (String) request.getAttribute("username");
+        String jti = (String) request.getAttribute("jti");
 
-        if (username == null) {
+        if (username == null || jti == null || incomingFingerprint == null) {
             filterChain.doFilter(request, response);
             return;
         }
 
+        String rotatedFingerprint = hmacUtil.hashPayload(incomingFingerprint + jti);
+
         String expectedFingerprint = sessionRegistry.getFingerprint(username);
 
-        if (expectedFingerprint == null || !expectedFingerprint.equals(incomingFingerprint)) {
+        if (expectedFingerprint == null || !expectedFingerprint.equals(rotatedFingerprint)) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Fingerprint mismatch");
             return;
         }
