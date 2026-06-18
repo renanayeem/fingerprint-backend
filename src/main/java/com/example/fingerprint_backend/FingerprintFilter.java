@@ -4,6 +4,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -11,6 +13,8 @@ import java.io.IOException;
 
 @Component
 public class FingerprintFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(FingerprintFilter.class);
 
     private final SessionRegistry sessionRegistry;
     private final HmacUtil hmacUtil;
@@ -48,6 +52,13 @@ public class FingerprintFilter extends OncePerRequestFilter {
         if (expectedFingerprint == null || !expectedFingerprint.equals(rotatedFingerprint)) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Fingerprint mismatch");
             return;
+        }
+
+        // IP soft validation - log only, never block
+        String currentIp = request.getRemoteAddr();
+        String knownIp = sessionRegistry.getIp(username);
+        if (knownIp != null && !knownIp.equals(currentIp)) {
+            log.warn("IP changed mid-session for {}: was {}, now {}", username, knownIp, currentIp);
         }
 
         filterChain.doFilter(request, response);

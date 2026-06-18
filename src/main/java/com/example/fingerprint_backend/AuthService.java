@@ -25,7 +25,8 @@ public class AuthService {
         this.hmacUtil = hmacUtil;
     }
 
-    public ResponseEntity<Map<String, String>> login(LoginRequest request, HttpServletResponse response) {
+    public ResponseEntity<Map<String, String>> login(LoginRequest request, HttpServletRequest httpRequest,
+            HttpServletResponse response) {
         String username = request.getUsername();
         String password = request.getPassword();
         String fingerprint = request.getFingerprint();
@@ -52,6 +53,10 @@ public class AuthService {
         }
 
         log.info("Saved new rotated fingerprint for: {}", username);
+
+        String loginIp = httpRequest.getRemoteAddr();
+        sessionRegistry.saveIp(username, loginIp);
+        log.info("Saved login IP for {}: {}", username, loginIp);
 
         // TODO: Add "; Secure" flag when deploying to HTTPS in production
         response.setHeader("Set-Cookie", "jwt=" + token + "; HttpOnly; Path=/; Max-Age=86400; SameSite=Strict");
