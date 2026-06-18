@@ -55,16 +55,6 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("message", "Secure endpoint accessed by: " + username));
     }
 
-    @GetMapping("/data")
-    public ResponseEntity<Map<String, String>> getData() {
-        return ResponseEntity.ok(Map.of("message", "Data fetched successfully!"));
-    }
-
-    @PostMapping("/data")
-    public ResponseEntity<Map<String, String>> postData() {
-        return ResponseEntity.ok(Map.of("message", "Data posted successfully!"));
-    }
-
     @PostMapping("/logout")
     public ResponseEntity<Map<String, String>> logout(
             HttpServletRequest request,
