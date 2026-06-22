@@ -61,6 +61,13 @@ public class AuthController {
         return authService.logout(request, response);
     }
 
+    @PostMapping("/refresh")
+    public ResponseEntity<Map<String, String>> refresh(
+            HttpServletRequest request,
+            HttpServletResponse response) {
+        return authService.refresh(request, response);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, String>> handleValidationErrors(MethodArgumentNotValidException ex) {
         String errorMessage = ex.getBindingResult().getFieldErrors().stream()

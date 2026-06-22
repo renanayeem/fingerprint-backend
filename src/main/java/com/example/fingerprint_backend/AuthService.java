@@ -132,4 +132,14 @@ public class AuthService {
         return ResponseEntity.status(401)
                 .body(Map.of("message", "Logout failed - no session found!"));
     }
+
+    public ResponseEntity<Map<String, String>> refresh(
+            HttpServletRequest request,
+            HttpServletResponse response) {
+
+        log.info("Refresh endpoint reached");
+
+        return ResponseEntity.ok(
+                Map.of("message", "Refresh endpoint reached"));
+    }
 }
