@@ -100,6 +100,16 @@ public class AuthService {
         String username = (String) request.getAttribute("username");
         String jti = (String) request.getAttribute("jti");
         String incomingFingerprint = request.getHeader("X-Client-Fingerprint");
+        String refreshToken = null;
+
+        if (request.getCookies() != null) {
+            for (var cookie : request.getCookies()) {
+                if ("refreshToken".equals(cookie.getName())) {
+                    refreshToken = cookie.getValue();
+                    break;
+                }
+            }
+        }
 
         if (username != null && jti != null && incomingFingerprint != null) {
             String rotatedFingerprint = hmacUtil.hashPayload(incomingFingerprint + jti);
@@ -111,11 +121,18 @@ public class AuthService {
 
                 sessionRegistry.delete(username);
 
+                if (refreshToken != null) {
+                    sessionRegistry.deleteRefreshToken(refreshToken);
+                }
+
                 log.info("Session deleted for: {}", username);
 
                 response.setHeader(
                         "Set-Cookie",
                         "jwt=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict");
+                response.addHeader(
+                        "Set-Cookie",
+                        "refreshToken=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict");
 
                 return ResponseEntity.ok(
                         Map.of("message", "Logged out successfully!"));
@@ -161,11 +178,21 @@ public class AuthService {
         }
 
         String newToken = jwtUtil.generateToken(username);
+        String newRefreshToken = UUID.randomUUID().toString();
+        sessionRegistry.saveRefreshToken(
+                newRefreshToken,
+                username);
+        sessionRegistry.deleteRefreshToken(refreshToken);
 
         response.addHeader(
                 "Set-Cookie",
                 "jwt=" + newToken
                         + "; HttpOnly; Path=/; Max-Age=86400; SameSite=Strict");
+
+        response.addHeader(
+                "Set-Cookie",
+                "refreshToken=" + newRefreshToken
+                        + "; HttpOnly; Path=/; Max-Age=604800; SameSite=Strict");
 
         log.info("JWT refreshed for: {}", username);
 
