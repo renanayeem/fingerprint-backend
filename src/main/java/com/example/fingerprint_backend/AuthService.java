@@ -160,10 +160,16 @@ public class AuthService {
                     .body(Map.of("message", "Invalid refresh token!"));
         }
 
-        log.info("Refresh requested for: {}", username);
+        String newToken = jwtUtil.generateToken(username);
+
+        response.addHeader(
+                "Set-Cookie",
+                "jwt=" + newToken
+                        + "; HttpOnly; Path=/; Max-Age=86400; SameSite=Strict");
+
+        log.info("JWT refreshed for: {}", username);
 
         return ResponseEntity.ok(
-                Map.of("message", "Refresh requested for: " + username));
+                Map.of("message", "Token refreshed successfully!"));
     }
-
 }
