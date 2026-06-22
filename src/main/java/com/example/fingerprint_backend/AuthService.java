@@ -59,7 +59,7 @@ public class AuthService {
         log.info("Saved login IP for {}: {}", username, loginIp);
 
         // TODO: Add "; Secure" flag when deploying to HTTPS in production
-        response.setHeader("Set-Cookie", "jwt=" + token + "; HttpOnly; Path=/; Max-Age=86400; SameSite=Strict");
+        response.setHeader("Set-Cookie", "jwt=" + token + "; HttpOnly; Path=/; Max-Age=86400");
         log.info("Login successful for: {}", username);
 
         return ResponseEntity.ok(Map.of("message", "Login successful!"));
