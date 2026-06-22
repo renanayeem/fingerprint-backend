@@ -153,9 +153,17 @@ public class AuthService {
                     .body(Map.of("message", "Refresh token missing!"));
         }
 
-        log.info("Refresh token received");
+        String username = sessionRegistry.getUsernameByRefreshToken(refreshToken);
+
+        if (username == null) {
+            return ResponseEntity.status(401)
+                    .body(Map.of("message", "Invalid refresh token!"));
+        }
+
+        log.info("Refresh requested for: {}", username);
 
         return ResponseEntity.ok(
-                Map.of("message", "Refresh token received"));
+                Map.of("message", "Refresh requested for: " + username));
     }
+
 }
