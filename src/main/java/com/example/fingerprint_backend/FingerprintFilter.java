@@ -26,12 +26,18 @@ public class FingerprintFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain) throws ServletException, IOException {
+                                    HttpServletResponse response,
+                                    FilterChain filterChain)
+            throws ServletException, IOException {
 
         String path = request.getRequestURI();
 
-        if (path.equals("/api/login") || path.equals("/api/register") || path.equals("/api/logout")) {
+        // Skip fingerprint validation for public endpoints
+        if (path.equals("/api/login")
+                || path.equals("/api/register")
+                || path.equals("/api/logout")
+                || path.equals("/api/refresh")) {
+
             filterChain.doFilter(request, response);
             return;
         }
@@ -40,8 +46,11 @@ public class FingerprintFilter extends OncePerRequestFilter {
         String username = (String) request.getAttribute("username");
         String jti = (String) request.getAttribute("jti");
 
+        // Missing authentication/fingerprint information
         if (username == null || jti == null || incomingFingerprint == null) {
-            filterChain.doFilter(request, response);
+            response.sendError(
+                    HttpServletResponse.SC_UNAUTHORIZED,
+                    "Missing fingerprint information");
             return;
         }
 
@@ -50,15 +59,22 @@ public class FingerprintFilter extends OncePerRequestFilter {
         String expectedFingerprint = sessionRegistry.getFingerprint(username);
 
         if (expectedFingerprint == null || !expectedFingerprint.equals(rotatedFingerprint)) {
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Fingerprint mismatch");
+            response.sendError(
+                    HttpServletResponse.SC_UNAUTHORIZED,
+                    "Fingerprint mismatch");
             return;
         }
 
         // IP soft validation - log only, never block
         String currentIp = request.getRemoteAddr();
         String knownIp = sessionRegistry.getIp(username);
+
         if (knownIp != null && !knownIp.equals(currentIp)) {
-            log.warn("IP changed mid-session for {}: was {}, now {}", username, knownIp, currentIp);
+            log.warn(
+                    "IP changed mid-session for {}: was {}, now {}",
+                    username,
+                    knownIp,
+                    currentIp);
         }
 
         filterChain.doFilter(request, response);

@@ -52,17 +52,13 @@ public class AuthService {
         }
 
         String token = jwtUtil.generateToken(username);
-
-        // Generate and store refresh token
         String refreshToken = UUID.randomUUID().toString();
         sessionRegistry.saveRefreshToken(refreshToken, username);
 
         String jti = jwtUtil.getJtiFromToken(token);
         String rotatedFingerprint = hmacUtil.hashPayload(fingerprint + jti);
 
-        boolean saved = sessionRegistry.saveFingerprintIfAbsent(
-                username,
-                rotatedFingerprint);
+        boolean saved = sessionRegistry.saveFingerprintIfAbsent(username, rotatedFingerprint);
 
         if (!saved) {
             log.info("Session already exists for: {}", username);
@@ -71,25 +67,19 @@ public class AuthService {
                     "Active session exists on another device. Please logout from that device first."));
         }
 
+        sessionRegistry.saveRawFingerprint(username, fingerprint);
         log.info("Saved new rotated fingerprint for: {}", username);
 
         String loginIp = httpRequest.getRemoteAddr();
         sessionRegistry.saveIp(username, loginIp);
         log.info("Saved login IP for {}: {}", username, loginIp);
 
-        // TODO: Add "; Secure" flag when deploying to HTTPS in production
-        response.addHeader(
-                "Set-Cookie",
-                "jwt=" + token
-                        + "; HttpOnly; Path=/; Max-Age=86400; SameSite=Strict");
-
-        response.addHeader(
-                "Set-Cookie",
-                "refreshToken=" + refreshToken
-                        + "; HttpOnly; Path=/; Max-Age=604800; SameSite=Strict");
+        response.addHeader("Set-Cookie",
+                "jwt=" + token + "; HttpOnly; Path=/; Max-Age=900; SameSite=Strict");
+        response.addHeader("Set-Cookie",
+                "refreshToken=" + refreshToken + "; HttpOnly; Path=/; Max-Age=604800; SameSite=Strict");
 
         log.info("Login successful for: {}", username);
-
         return ResponseEntity.ok(Map.of("message", "Login successful!"));
     }
 
@@ -98,10 +88,9 @@ public class AuthService {
             HttpServletResponse response) {
 
         String username = (String) request.getAttribute("username");
-        String jti = (String) request.getAttribute("jti");
-        String incomingFingerprint = request.getHeader("X-Client-Fingerprint");
         String refreshToken = null;
 
+        // Extract refresh token from cookies
         if (request.getCookies() != null) {
             for (var cookie : request.getCookies()) {
                 if ("refreshToken".equals(cookie.getName())) {
@@ -111,39 +100,31 @@ public class AuthService {
             }
         }
 
-        if (username != null && jti != null && incomingFingerprint != null) {
-            String rotatedFingerprint = hmacUtil.hashPayload(incomingFingerprint + jti);
+        // If JWT expired, recover username using refresh token
+        if (username == null && refreshToken != null) {
+            username = sessionRegistry.getUsernameByRefreshToken(refreshToken);
+        }
 
-            String storedFingerprint = sessionRegistry.getFingerprint(username);
+        if (username != null) {
 
-            if (storedFingerprint != null &&
-                    storedFingerprint.equals(rotatedFingerprint)) {
+            sessionRegistry.delete(username);
 
-                sessionRegistry.delete(username);
-
-                if (refreshToken != null) {
-                    sessionRegistry.deleteRefreshToken(refreshToken);
-                }
-
-                log.info("Session deleted for: {}", username);
-
-                response.setHeader(
-                        "Set-Cookie",
-                        "jwt=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict");
-                response.addHeader(
-                        "Set-Cookie",
-                        "refreshToken=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict");
-
-                return ResponseEntity.ok(
-                        Map.of("message", "Logged out successfully!"));
-
-            } else {
-                log.warn("Logout blocked - fingerprint mismatch for: {}", username);
-
-                return ResponseEntity.status(401).body(
-                        Map.of("message",
-                                "Logout failed - fingerprint mismatch!"));
+            if (refreshToken != null) {
+                sessionRegistry.deleteRefreshToken(refreshToken);
             }
+
+            log.info("Session deleted for: {}", username);
+
+            response.setHeader(
+                    "Set-Cookie",
+                    "jwt=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict");
+
+            response.addHeader(
+                    "Set-Cookie",
+                    "refreshToken=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict");
+
+            return ResponseEntity.ok(
+                    Map.of("message", "Logged out successfully!"));
         }
 
         return ResponseEntity.status(401)
@@ -171,32 +152,36 @@ public class AuthService {
         }
 
         String username = sessionRegistry.getUsernameByRefreshToken(refreshToken);
+        log.info("Refresh requested. Token: {}, Username: {}", refreshToken, username);
 
         if (username == null) {
             return ResponseEntity.status(401)
                     .body(Map.of("message", "Invalid refresh token!"));
         }
 
+        String rawFingerprint = sessionRegistry.getRawFingerprint(username);
+        if (rawFingerprint == null) {
+            log.warn("Refresh failed - raw fingerprint missing for: {}", username);
+            return ResponseEntity.status(401)
+                    .body(Map.of("message", "Session invalid, please login again!"));
+        }
+
         String newToken = jwtUtil.generateToken(username);
+        String newJti = jwtUtil.getJtiFromToken(newToken);
+        String newRotatedFingerprint = hmacUtil.hashPayload(rawFingerprint + newJti);
+
+        sessionRegistry.saveFingerprint(username, newRotatedFingerprint);
+
         String newRefreshToken = UUID.randomUUID().toString();
-        sessionRegistry.saveRefreshToken(
-                newRefreshToken,
-                username);
+        sessionRegistry.saveRefreshToken(newRefreshToken, username);
         sessionRegistry.deleteRefreshToken(refreshToken);
 
-        response.addHeader(
-                "Set-Cookie",
-                "jwt=" + newToken
-                        + "; HttpOnly; Path=/; Max-Age=86400; SameSite=Strict");
-
-        response.addHeader(
-                "Set-Cookie",
-                "refreshToken=" + newRefreshToken
-                        + "; HttpOnly; Path=/; Max-Age=604800; SameSite=Strict");
+        response.addHeader("Set-Cookie",
+                "jwt=" + newToken + "; HttpOnly; Path=/; Max-Age=900; SameSite=Strict");
+        response.addHeader("Set-Cookie",
+                "refreshToken=" + newRefreshToken + "; HttpOnly; Path=/; Max-Age=604800; SameSite=Strict");
 
         log.info("JWT refreshed for: {}", username);
-
-        return ResponseEntity.ok(
-                Map.of("message", "Token refreshed successfully!"));
+        return ResponseEntity.ok(Map.of("message", "Token refreshed successfully!"));
     }
 }

@@ -30,7 +30,7 @@ public class JwtFilter extends OncePerRequestFilter {
 
         String token = extractCookie(request, "jwt");
 
-        if (token != null && jwtUtil.validateToken(token)) {
+        if (token != null && jwtUtil.validateToken(token) && jwtUtil.isAccessToken(token)) {
             String username = jwtUtil.getUsernameFromToken(token);
             String jti = jwtUtil.getJtiFromToken(token);
             request.setAttribute("username", username);
@@ -41,7 +41,7 @@ public class JwtFilter extends OncePerRequestFilter {
             SecurityContextHolder.getContext().setAuthentication(auth);
         }
 
-        // done checking jwt , continue processing request
+        // done checking jwt, continue processing request
         filterChain.doFilter(request, response);
     }
 
