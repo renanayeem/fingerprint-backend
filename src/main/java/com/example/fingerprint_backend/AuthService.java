@@ -137,9 +137,25 @@ public class AuthService {
             HttpServletRequest request,
             HttpServletResponse response) {
 
-        log.info("Refresh endpoint reached");
+        String refreshToken = null;
+
+        if (request.getCookies() != null) {
+            for (var cookie : request.getCookies()) {
+                if ("refreshToken".equals(cookie.getName())) {
+                    refreshToken = cookie.getValue();
+                    break;
+                }
+            }
+        }
+
+        if (refreshToken == null) {
+            return ResponseEntity.status(401)
+                    .body(Map.of("message", "Refresh token missing!"));
+        }
+
+        log.info("Refresh token received");
 
         return ResponseEntity.ok(
-                Map.of("message", "Refresh endpoint reached"));
+                Map.of("message", "Refresh token received"));
     }
 }
