@@ -52,12 +52,10 @@ public class AuthService {
         }
 
         String token = jwtUtil.generateToken(username);
-        String refreshToken = UUID.randomUUID().toString();
-        sessionRegistry.saveRefreshToken(refreshToken, username);
-
         String jti = jwtUtil.getJtiFromToken(token);
         String rotatedFingerprint = hmacUtil.hashPayload(fingerprint + jti);
 
+        // Check fingerprint BEFORE saving anything to Redis
         boolean saved = sessionRegistry.saveFingerprintIfAbsent(username, rotatedFingerprint);
 
         if (!saved) {
@@ -66,6 +64,10 @@ public class AuthService {
                     "message",
                     "Active session exists on another device. Please logout from that device first."));
         }
+
+        // Only reach here if session slot was secured
+        String refreshToken = UUID.randomUUID().toString();
+        sessionRegistry.saveRefreshToken(refreshToken, username);
 
         sessionRegistry.saveRawFingerprint(username, fingerprint);
         log.info("Saved new rotated fingerprint for: {}", username);
