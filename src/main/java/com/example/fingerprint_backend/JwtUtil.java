@@ -14,7 +14,7 @@ import java.util.UUID;
 public class JwtUtil {
 
     private final Key secretKey;
-    private final long ACCESS_EXPIRATION = 1000 * 60 * 15; // 15 seconds for testing
+    private final long ACCESS_EXPIRATION = 1000 * 15; // 15 seconds for testing
     private final long REFRESH_EXPIRATION = 1000 * 60 * 60 * 24 * 7; // 7 days
 
     public JwtUtil(@Value("${jwt.secret}") String secret) {

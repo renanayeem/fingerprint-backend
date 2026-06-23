@@ -39,8 +39,7 @@ public class HmacFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         String method = request.getMethod();
 
-        boolean needsSignature = (method.equals("POST") && path.equals("/api/vehicles"))
-                || (method.equals("POST") && path.equals("/api/logout"));
+        boolean needsSignature = (method.equals("POST") && path.equals("/api/vehicles"));
 
         if (!needsSignature) {
             filterChain.doFilter(request, response);
